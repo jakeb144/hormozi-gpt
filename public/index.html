@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hormozi GPT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary:    #0a0a0a;
+      --bg-secondary:  #141414;
+      --bg-tertiary:   #1a1a1a;
+      --bg-input:      #111111;
+      --border:        #222222;
+      --border-focus:  #ff4d00;
+      --text-primary:  #f0ece4;
+      --text-secondary:#8a8578;
+      --text-muted:    #555049;
+      --accent:        #ff4d00;
+      --accent-dim:    #cc3d00;
+      --accent-glow:   rgba(255, 77, 0, 0.15);
+      --user-bg:       #1c1710;
+      --assistant-bg:  transparent;
+      --font-body:     'DM Sans', system-ui, sans-serif;
+      --font-mono:     'JetBrains Mono', monospace;
+      --radius:        12px;
+      --max-width:     780px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ────────────────────────────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: var(--max-width);
+      margin: 0 auto;
+    }
+
+    /* ── Header ────────────────────────────────────────────── */
+    header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: -0.5px;
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+
+    .brand-text h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    /* ── Messages Area ─────────────────────────────────────── */
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 0;
+      scroll-behavior: smooth;
+    }
+
+    #chat-area::-webkit-scrollbar { width: 4px; }
+    #chat-area::-webkit-scrollbar-track { background: transparent; }
+    #chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .message {
+      padding: 16px 24px;
+      animation: fadeSlideIn 0.3s ease;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      background: var(--user-bg);
+      border-left: 3px solid var(--accent);
+    }
+
+    .message .role-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .message.user .role-label { color: var(--accent); }
+    .message.assistant .role-label { color: var(--text-secondary); }
+
+    .message .content {
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .message .content strong { color: var(--accent); font-weight: 700; }
+
+    .message .content code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #f0ece4;
+    }
+
+    /* Cursor blink on streaming */
+    .streaming-cursor::after {
+      content: '▊';
+      color: var(--accent);
+      animation: blink 0.8s step-end infinite;
+      margin-left: 1px;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* ── Welcome / Starter Prompts ─────────────────────────── */
+    #welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    #welcome h2 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #welcome p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      max-width: 420px;
+      margin-bottom: 32px;
+    }
+
+    .starters {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .starter-btn {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 13.5px;
+      line-height: 1.45;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .starter-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    .starter-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    /* ── Input Area ─────────────────────────────────────────── */
+    #input-area {
+      padding: 16px 24px 24px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--bg-primary);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    #user-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.5;
+      resize: none;
+      min-height: 50px;
+      max-height: 160px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #user-input:focus { border-color: var(--border-focus); }
+    #user-input::placeholder { color: var(--text-muted); }
+
+    #send-btn {
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    #send-btn:hover { background: var(--accent-dim); transform: scale(1.04); }
+    #send-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    .input-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .starters { grid-template-columns: 1fr; }
+      .message { padding: 14px 16px; }
+      #input-area { padding: 12px 16px 20px; }
+      header { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="brand">
+        <div class="brand-icon">H</div>
+        <div class="brand-text">
+          <h1>Hormozi GPT</h1>
+          <p>Business mentor powered by 3,600+ Hormozi training pairs</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Welcome screen (hidden after first message) -->
+    <div id="welcome">
+      <h2>What's the constraint?</h2>
+      <p>I'll diagnose your business like I would on an Acquisition.com portfolio call. Bring specifics — I'll bring frameworks.</p>
+      <div class="starters">
+        <button class="starter-btn" onclick="sendStarter(this)">
+          <div class="starter-label">Offer</div>
+          My service is getting commoditized and I'm competing on price. How do I build a Grand Slam Offer?
+        </button>
+        <button class="starter-btn" onclick="sendStarter(this)">
+          <div class="starter-label">Leads</div>
+          I'm getting 50 leads/month but only closing 3. What's broken in my funnel?
+        </button>
+        <button class="starter-btn" onclick="sendStarter(this)">
+          <div class="starter-label">Scale</div>
+          I'm stuck at $40k/mo. I'm doing everything myself. How do I break through?
+        </button>
+        <button class="starter-btn" onclick="sendStarter(this)">
+          <div class="starter-label">Retention</div>
+          My churn rate is 15% monthly. Customers leave after 2-3 months. How do I fix delivery?
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat messages -->
+    <div id="chat-area" style="display:none;"></div>
+
+    <!-- Input -->
+    <div id="input-area">
+      <div class="input-row">
+        <textarea
+          id="user-input"
+          rows="1"
+          placeholder="Describe your business situation…"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <button id="send-btn" onclick="sendMessage()" title="Send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">RAG-powered by 3,647 training pairs · Claude Sonnet 4</div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────
+    let conversationHistory = [];
+    let isStreaming = false;
+
+    const chatArea  = document.getElementById('chat-area');
+    const welcome   = document.getElementById('welcome');
+    const input     = document.getElementById('user-input');
+    const sendBtn   = document.getElementById('send-btn');
+
+    // ── Auto-resize textarea ──────────────────────────────────
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+
+    // ── Keyboard shortcut ─────────────────────────────────────
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    // ── Starter prompts ───────────────────────────────────────
+    function sendStarter(btn) {
+      const label = btn.querySelector('.starter-label').textContent;
+      const full  = btn.textContent.replace(label, '').trim();
+      input.value = full;
+      sendMessage();
+    }
+
+    // ── Add a message bubble to the DOM ───────────────────────
+    function addMessage(role, content) {
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.innerHTML = `
+        <div class="role-label">${role === 'user' ? 'You' : 'Hormozi'}</div>
+        <div class="content">${escapeHtml(content)}</div>
+      `;
+      chatArea.appendChild(div);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      return div;
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    // ── Format markdown-ish text ──────────────────────────────
+    function formatContent(text) {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.*?)`/g, '<code>$1</code>');
+    }
+
+    // ── Main send + stream ────────────────────────────────────
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text || isStreaming) return;
+
+      // Switch to chat mode
+      welcome.style.display = 'none';
+      chatArea.style.display = 'block';
+
+      // Add user message
+      addMessage('user', text);
+      conversationHistory.push({ role: 'user', content: text });
+      input.value = '';
+      input.style.height = 'auto';
+
+      // Create assistant bubble for streaming
+      isStreaming = true;
+      sendBtn.disabled = true;
+      const assistantDiv = addMessage('assistant', '');
+      const contentEl = assistantDiv.querySelector('.content');
+      contentEl.classList.add('streaming-cursor');
+
+      let fullResponse = '';
+
+      try {
+        const resp = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: conversationHistory }),
+        });
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // keep incomplete line
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') continue;
+
+            try {
+              const data = JSON.parse(payload);
+              if (data.token) {
+                fullResponse += data.token;
+                contentEl.innerHTML = formatContent(escapeHtml(fullResponse));
+                chatArea.scrollTop = chatArea.scrollHeight;
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        fullResponse = '⚠ Connection error. Check the console and make sure the backend is running.';
+        contentEl.innerHTML = fullResponse;
+        console.error(err);
+      }
+
+      contentEl.classList.remove('streaming-cursor');
+      conversationHistory.push({ role: 'assistant', content: fullResponse });
+      isStreaming = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  </script>
+</body>
+</html>
